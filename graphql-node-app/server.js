@@ -1,88 +1,68 @@
 const express = require('express');
 const cors = require('cors');
-const { ApolloServer } = require('@apollo/server')
-const bodyParser = require('body-parser');
+const { ApolloServer } = require('@apollo/server');
 const { expressMiddleware } = require('@apollo/server/express4');
-const { default: axios } = require('axios');
+const axios = require('axios');
+
+const BASE_URL = 'https://jsonplaceholder.typicode.com';
+
+const errorHandler = (error) => {
+    console.error('Error:', error.message || error);
+    throw error;
+};
+async function fetchData(url) {
+    try {
+        const response = await axios.get(url);
+        return response.data;
+    } catch (error) {
+        errorHandler(error);
+    }
+}
+
+
 async function startServer() {
     const app = express();
     const server = new ApolloServer({
         typeDefs: `
-        type User {
-            id: ID!
-            name : String!
-            email : String!
-        }
-        type Todo {
-            id: ID!
-            title : String!
-            completed : Boolean
-            user: User
-        }
-
-        type Query {
-            getTodos : [Todo]
-            getAllUsers : [User]
-            getSingleUser(id: ID!) : User
-        }
+            type User {
+                id: ID!
+                name: String!
+                email: String!
+            }
+            type Todo {
+                id: ID!
+                title: String!
+                completed: Boolean
+                user: User
+            }
+            type Query {
+                getTodos: [Todo]
+                getAllUsers: [User]
+                getSingleUser(id: ID!): User
+            }
         `,
         resolvers: {
             Todo: {
-                user: async (todo) => {
-                    try {
-                        const response = await axios.get(`https://jsonplaceholder.typicode.com/users/${todo.id}`);
-                        const data = response.data;
-                        return data; // Return the fetched data
-                    } catch (error) {
-                        console.error('Error fetching todos:', error);
-                        throw error;
-                    }
-
-                }
+                user: async (todo) => fetchData(`${BASE_URL}/users/${todo.id}`)
             },
             Query: {
-                getTodos: async () => {
-                    try {
-                        const response = await axios.get('https://jsonplaceholder.typicode.com/todos');
-                        const data = response.data;
-                        return data; // Return the fetched data
-                    } catch (error) {
-                        console.error('Error fetching todos:', error);
-                        throw error;
-                    }
-                },
-                getAllUsers: async () => {
-                    try {
-                        const response = await axios.get('https://jsonplaceholder.typicode.com/users');
-                        const data = response.data;
-                        return data; // Return the fetched data
-                    } catch (error) {
-                        console.error('Error fetching todos:', error);
-                        throw error;
-                    }
-                },
-                getSingleUser: async (parent, { id }) => {
-                    try {
-                        const response = await axios.get(`https://jsonplaceholder.typicode.com/users/${id}`);
-                        const data = response.data;
-                        return data; // Return the fetched data
-                    } catch (error) {
-                        console.error('Error fetching todos:', error);
-                        throw error;
-                    }
-                }
+                getTodos: async () => fetchData(`${BASE_URL}/todos`),
+                getAllUsers: async () => fetchData(`${BASE_URL}/users`),
+                getSingleUser: async (parent, { id }) => fetchData(`${BASE_URL}/users/${id}`)
             }
         }
     });
-    app.use(bodyParser.json());
+
+    app.use(express.json()); 
     app.use(cors());
-    await server.start()
+
+    await server.start();
 
     app.use('/graphql', expressMiddleware(server));
 
     app.listen(5000, () => {
-        console.info('server runnning')
-    })
+        console.info('Server running on http://localhost:5000/graphql');
+    });
 }
 
-startServer()
+startServer();
