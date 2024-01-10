@@ -3,8 +3,9 @@ const cors = require('cors');
 const { ApolloServer } = require('@apollo/server');
 const { expressMiddleware } = require('@apollo/server/express4');
 const axios = require('axios');
+const { users, companies } = require('./Mock/User');
 
-const BASE_URL = 'https://jsonplaceholder.typicode.com';
+
 
 const errorHandler = (error) => {
     console.error('Error:', error.message || error);
@@ -27,41 +28,66 @@ async function startServer() {
             type User {
                 id: ID!
                 name: String!
-                email: String!
+                age: String!
+                company: Company!
             }
-            type Todo {
-                id: ID!
-                title: String!
-                completed: Boolean
-                user: User
+            
+            type Company {
+                id: String!
+                name: String
+                employes: [User]
             }
+
+            input CreateUserInput {
+                name: String!
+                age: String!
+                companyId: String!
+            }
+
+            type Mutation {
+                createUser(input: CreateUserInput!): User
+            }
+
             type Query {
-                getTodos: [Todo]
-                getAllUsers: [User]
-                getSingleUser(id: ID!): User
+                getUsers: [User]
+                getCompany: [Company]
             }
         `,
         resolvers: {
-            Todo: {
-                user: async (todo) => fetchData(`${BASE_URL}/users/${todo.id}`)
-            },
             Query: {
-                getTodos: async () => fetchData(`${BASE_URL}/todos`),
-                getAllUsers: async () => fetchData(`${BASE_URL}/users`),
-                getSingleUser: async (parent, { id }) => fetchData(`${BASE_URL}/users/${id}`)
-            }
-        }
+                getUsers: () => users,
+                getCompany: () => companies,
+            },
+            Mutation: {
+                createUser: (_, { input }) => {
+                    const newUser = {
+                        id: String(users.length + 1),
+                        name: input.name,
+                        age: input.age,
+                        company: {
+                            id: input.companyId,
+                            name: "Example Company", // You might fetch this from another source
+                            employes: [],
+                        },
+                    };
+
+                    users.push(newUser);
+
+                    return newUser;
+                },
+            },
+        },
     });
 
-    app.use(express.json()); 
+    app.use(express.json());
     app.use(cors());
 
     await server.start();
 
     app.use('/graphql', expressMiddleware(server));
 
-    app.listen(5000, () => {
-        console.info('Server running on http://localhost:5000/graphql');
+    app.listen(3000, () => {
+        console.info('Server running on http://localhost:3000/graphql');
     });
 }
 
